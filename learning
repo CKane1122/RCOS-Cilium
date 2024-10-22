@@ -1,0 +1,44 @@
+from kubernetes import client, config
+
+config.load_kube_config()
+
+policy = client.V1NetworkPolicy(
+    metadata=client.V1ObjectMeta(
+        name="allow-nginx-from-specific-ip", 
+        namespace="demo"
+    ),
+    spec=client.V1NetworkPolicySpec(
+        pod_selector=client.V1LabelSelector(
+            match_labels={"app": "nginx"}
+        ),
+        policy_types=["Ingress"],
+        ingress=[
+            client.V1NetworkPolicyIngressRule(
+                _from=[
+                    client.V1NetworkPolicyPeer(
+                        ip_block=client.V1IPBlock(
+                            cidr="10.0.0.0/16",  # Allow from this IP range
+                        )
+                    )
+                ],
+                ports=[
+                    client.V1NetworkPolicyPort(
+                        protocol="TCP",
+                        port=80
+                    )
+                ]
+            )
+        ]
+    )
+)
+
+api = client.NetworkingV1Api()
+
+try:
+    api.create_namespaced_network_policy(
+        namespace="demo", 
+        body=policy
+    )
+    print("Network policy created successfully.")
+except client.exceptions.ApiException as e:
+    print(f"Error creating network policy: {e}")
